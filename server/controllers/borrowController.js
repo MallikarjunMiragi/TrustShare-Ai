@@ -4,6 +4,8 @@ const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendEmail } = require('../utils/email');
 const { approvalTemplate, returnTemplate } = require('../utils/emailTemplates');
+const { recomputeTrustScore, isValueTierAllowed } = require('../utils/trust');
+const { createTrustEvent } = require('../utils/trustEvents');
 
 const safeSendEmail = async (payload) => {
   try {
@@ -20,6 +22,9 @@ exports.createBorrowRequest = asyncHandler(async (req, res) => {
   }
   if (!req.user.communityId) {
     return res.status(400).json({ message: 'User must belong to a community' });
+  }
+  if (req.user.accountStatus === 'SUSPENDED') {
+    return res.status(403).json({ message: 'Account suspended. Borrowing disabled.' });
   }
 
   const item = await Item.findById(itemId);
@@ -48,6 +53,31 @@ exports.createBorrowRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Duration must be at least 1 day' });
   }
 
+  const trustProfile = await recomputeTrustScore(req.user._id);
+  const limits = trustProfile.borrowLimits;
+
+  const activeBorrowCount = await BorrowRequest.countDocuments({
+    borrowerId: req.user._id,
+    status: { $in: ['PENDING', 'ACTIVE'] },
+  });
+  if (activeBorrowCount >= limits.maxActive) {
+    return res.status(400).json({
+      message: `Borrow limit reached. Max active borrows allowed: ${limits.maxActive}.`,
+    });
+  }
+  if (!isValueTierAllowed(item.valueTier || 'LOW', limits.maxValueTier)) {
+    return res.status(400).json({
+      message: `Your trust tier allows borrowing ${limits.maxValueTier} value items only.`,
+    });
+  }
+  if (durationNumber && durationNumber > limits.maxDurationDays) {
+    return res.status(400).json({
+      message: `Max allowed duration for your tier is ${limits.maxDurationDays} days.`,
+    });
+  }
+
+  const previousBorrowCount = await BorrowRequest.countDocuments({ borrowerId: req.user._id });
+
   const request = await BorrowRequest.create({
     itemId: item._id,
     borrowerId: req.user._id,
@@ -55,6 +85,15 @@ exports.createBorrowRequest = asyncHandler(async (req, res) => {
     durationDays: durationNumber,
     message: message || '',
   });
+
+  if (previousBorrowCount === 0) {
+    await createTrustEvent({
+      userId: req.user._id,
+      type: 'FIRST_BORROW',
+      label: 'First borrow request',
+      meta: { itemId: item._id },
+    });
+  }
 
   res.status(201).json({ request });
 });
@@ -64,8 +103,8 @@ exports.getMyRequests = asyncHandler(async (req, res) => {
     $or: [{ borrowerId: req.user._id }, { ownerId: req.user._id }],
   })
     .populate('itemId', 'title category')
-    .populate('borrowerId', 'name trustScore')
-    .populate('ownerId', 'name trustScore')
+    .populate('borrowerId', 'name trustScore trustTier accountStatus manualBorrowLimits')
+    .populate('ownerId', 'name trustScore trustTier accountStatus')
     .sort({ requestedAt: -1 });
 
   res.json({ requests });
@@ -96,6 +135,7 @@ exports.approveRequest = asyncHandler(async (req, res) => {
 
   await Item.findByIdAndUpdate(request.itemId, { available: false });
   await User.findByIdAndUpdate(req.user._id, { $inc: { creditPoints: 10 } });
+  await recomputeTrustScore(req.user._id);
 
   const borrower = await User.findById(request.borrowerId);
   if (borrower?.email) {
@@ -153,6 +193,18 @@ exports.markReturned = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(request.borrowerId, {
     $inc: { creditPoints: onTime ? 5 : -10 },
   });
+  await recomputeTrustScore(request.borrowerId);
+  await recomputeTrustScore(request.ownerId);
+
+  if (!onTime && request.dueAt) {
+    const daysLate = Math.ceil((request.returnedAt - request.dueAt) / (1000 * 60 * 60 * 24));
+    await createTrustEvent({
+      userId: request.borrowerId,
+      type: 'LATE_RETURN',
+      label: `Late return (${daysLate} days)`,
+      meta: { itemId: request.itemId, daysLate },
+    });
+  }
 
   const [borrower, owner] = await Promise.all([
     User.findById(request.borrowerId),

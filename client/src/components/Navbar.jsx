@@ -40,6 +40,7 @@ export default function Navbar() {
   ];
   if (isAdmin) {
     links.push({ label: 'Community', to: '/community' });
+    links.push({ label: 'Admin', to: '/admin' });
   }
 
   return (

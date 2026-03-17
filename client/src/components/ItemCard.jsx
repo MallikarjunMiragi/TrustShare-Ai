@@ -33,10 +33,14 @@ export default function ItemCard({ item }) {
           </span>
         </div>
         <p className="text-sm text-slate-500">Shared by {item.owner}</p>
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <ShieldCheck className="h-4 w-4 text-primary" />
-          Trust {item.trustScore}
-        </div>
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <ShieldCheck className="h-4 w-4 text-primary" />
+        Trust {item.trustScore}
+        {item.trustTier ? `· ${item.trustTier.replace('_', ' ')}` : ''}
+      </div>
+      {item.valueTier ? (
+        <p className="text-xs font-semibold text-slate-500">Value tier: {item.valueTier}</p>
+      ) : null}
       </div>
       <div className="flex items-center justify-between">
         <motion.div

@@ -19,6 +19,7 @@ export default function Items() {
     description: '',
     category: 'Tools',
     imageUrl: '',
+    valueTier: 'LOW',
   });
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: '' });
 
@@ -54,7 +55,7 @@ export default function Items() {
     setError('');
     try {
       await api.post('/items', form, token);
-      setForm({ title: '', description: '', category: 'Tools', imageUrl: '' });
+      setForm({ title: '', description: '', category: 'Tools', imageUrl: '', valueTier: 'LOW' });
       setUploadStatus({ loading: false, error: '' });
       fetchItems();
     } catch (err) {
@@ -83,6 +84,7 @@ export default function Items() {
       ...item,
       owner: item.ownerId?.name || item.owner,
       trustScore: item.ownerId?.trustScore ?? item.trustScore ?? 0,
+      trustTier: item.ownerId?.trustTier ?? item.trustTier,
       available: item.available ?? true,
     }));
   }, [items]);
@@ -145,6 +147,16 @@ export default function Items() {
                   {entry}
                 </option>
               ))}
+            </select>
+            <select
+              name="valueTier"
+              value={form.valueTier}
+              onChange={handleFormChange}
+              className="w-full rounded-2xl bg-white/70 px-4 py-3 text-sm outline-none"
+            >
+              <option value="LOW">Low value (everyday items)</option>
+              <option value="MEDIUM">Medium value</option>
+              <option value="HIGH">High value</option>
             </select>
             <textarea
               name="description"

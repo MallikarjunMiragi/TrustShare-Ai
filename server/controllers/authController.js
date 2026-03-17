@@ -4,6 +4,7 @@ const Community = require('../models/Community');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const generateInviteCode = require('../utils/generateInviteCode');
+const { recomputeTrustScore } = require('../utils/trust');
 
 const signToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -25,6 +26,9 @@ const attachCommunityToUser = async (user, community) => {
   await community.save();
 
   user.communityId = community._id;
+  if (user.verification) {
+    user.verification.communityVerified = true;
+  }
   await user.save();
 };
 
@@ -70,12 +74,18 @@ exports.register = asyncHandler(async (req, res) => {
     email: normalizedEmail,
     password: hashed,
     communityId: community ? community._id : undefined,
+    verification: {
+      emailVerified: true,
+      communityVerified: Boolean(community),
+      idVerified: false,
+    },
   });
 
   if (community) {
     await attachCommunityToUser(user, community);
   }
 
+  const trustProfile = await recomputeTrustScore(user._id);
   const token = signToken(user._id);
   res.status(201).json({
     token,
@@ -84,8 +94,13 @@ exports.register = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       communityId: user.communityId,
-      trustScore: user.trustScore,
+      trustScore: trustProfile.trustScore,
+      trustTier: trustProfile.trustTier,
       creditPoints: user.creditPoints,
+      verification: user.verification,
+      accountStatus: user.accountStatus,
+      manualBorrowLimits: user.manualBorrowLimits,
+      manualTrustOverride: user.manualTrustOverride,
     },
     community,
   });
@@ -116,7 +131,12 @@ exports.login = asyncHandler(async (req, res) => {
       email: user.email,
       communityId: user.communityId,
       trustScore: user.trustScore,
+      trustTier: user.trustTier,
       creditPoints: user.creditPoints,
+      verification: user.verification,
+      accountStatus: user.accountStatus,
+      manualBorrowLimits: user.manualBorrowLimits,
+      manualTrustOverride: user.manualTrustOverride,
     },
   });
 });
@@ -130,9 +150,14 @@ exports.getMe = asyncHandler(async (req, res) => {
       email: user.email,
       communityId: user.communityId,
       trustScore: user.trustScore,
+      trustTier: user.trustTier,
       creditPoints: user.creditPoints,
       avatar: user.avatar,
       createdAt: user.createdAt,
+      verification: user.verification,
+      accountStatus: user.accountStatus,
+      manualBorrowLimits: user.manualBorrowLimits,
+      manualTrustOverride: user.manualTrustOverride,
     },
   });
 });

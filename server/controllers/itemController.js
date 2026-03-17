@@ -1,10 +1,15 @@
+const mongoose = require('mongoose');
 const Item = require('../models/Item');
 const asyncHandler = require('../utils/asyncHandler');
+const { recomputeTrustScore } = require('../utils/trust');
 
 exports.createItem = asyncHandler(async (req, res) => {
-  const { title, description, category, imageUrl } = req.body;
+  const { title, description, category, imageUrl, valueTier } = req.body;
   if (!title || !category) {
     return res.status(400).json({ message: 'Title and category required' });
+  }
+  if (valueTier && !['LOW', 'MEDIUM', 'HIGH'].includes(valueTier)) {
+    return res.status(400).json({ message: 'Invalid value tier' });
   }
 
   if (!req.user.communityId) {
@@ -16,9 +21,11 @@ exports.createItem = asyncHandler(async (req, res) => {
     description,
     category,
     imageUrl,
+    valueTier,
     ownerId: req.user._id,
     communityId: req.user.communityId,
   });
+  await recomputeTrustScore(req.user._id);
 
   res.status(201).json({ item });
 });
@@ -40,12 +47,15 @@ exports.getItems = asyncHandler(async (req, res) => {
     filter.available = available === 'true';
   }
 
-  const items = await Item.find(filter).populate('ownerId', 'name trustScore');
+  const items = await Item.find(filter).populate('ownerId', 'name trustScore trustTier');
   res.json({ items });
 });
 
 exports.getItemById = asyncHandler(async (req, res) => {
-  const item = await Item.findById(req.params.id).populate('ownerId', 'name trustScore');
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid item id' });
+  }
+  const item = await Item.findById(req.params.id).populate('ownerId', 'name trustScore trustTier');
   if (!item || item.communityId.toString() !== req.user.communityId.toString()) {
     return res.status(404).json({ message: 'Item not found' });
   }
@@ -75,13 +85,16 @@ exports.updateItem = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Item not found' });
   }
 
-  const fields = ['title', 'description', 'category', 'imageUrl'];
+  const fields = ['title', 'description', 'category', 'imageUrl', 'valueTier'];
   const updates = {};
   fields.forEach((field) => {
     if (req.body[field] !== undefined) {
       updates[field] = req.body[field];
     }
   });
+  if (updates.valueTier && !['LOW', 'MEDIUM', 'HIGH'].includes(updates.valueTier)) {
+    return res.status(400).json({ message: 'Invalid value tier' });
+  }
 
   if (!Object.keys(updates).length) {
     return res.status(400).json({ message: 'No updates provided' });
@@ -89,6 +102,7 @@ exports.updateItem = asyncHandler(async (req, res) => {
 
   Object.assign(item, updates);
   await item.save();
+  await recomputeTrustScore(req.user._id);
 
   res.json({ item });
 });

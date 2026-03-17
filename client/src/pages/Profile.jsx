@@ -46,7 +46,12 @@ export default function Profile() {
       </div>
 
       <GlassCard className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <TrustMeter value={user?.trustScore ?? 0} />
+        <div className="space-y-3">
+          <TrustMeter value={user?.trustScore ?? 0} />
+          <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            Tier: {user?.trustTier?.replace('_', ' ') || 'LOW'}
+          </span>
+        </div>
         <div className="grid flex-1 gap-4 sm:grid-cols-2">
           <div className="rounded-2xl bg-white/70 p-4">
             <p className="text-xs font-semibold text-slate-500">Ratings</p>
@@ -101,6 +106,20 @@ export default function Profile() {
                 {badge}
               </span>
             ))}
+          </div>
+          <div className="space-y-2 text-xs text-slate-500">
+            <p className="font-semibold text-slate-700">Verification</p>
+            <div className="flex flex-wrap gap-2">
+              <span className={`rounded-full px-3 py-1 ${user?.verification?.emailVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                Email
+              </span>
+              <span className={`rounded-full px-3 py-1 ${user?.verification?.communityVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                Community
+              </span>
+              <span className={`rounded-full px-3 py-1 ${user?.verification?.idVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                ID
+              </span>
+            </div>
           </div>
         </GlassCard>
       </div>

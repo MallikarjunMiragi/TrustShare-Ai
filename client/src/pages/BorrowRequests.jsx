@@ -1,4 +1,5 @@
-import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import GlassCard from '../components/GlassCard';
 import { api } from '../lib/api';
@@ -70,7 +71,12 @@ export default function BorrowRequests() {
       }
       await api.post(
         '/ratings',
-        { borrowRequestId: requestId, score: Number(payload.score), comment: payload.comment || '' },
+        {
+          borrowRequestId: requestId,
+          score: Number(payload.score),
+          careScore: payload.careScore ? Number(payload.careScore) : undefined,
+          comment: payload.comment || '',
+        },
         token
       );
       setRatingStatus((prev) => ({
@@ -105,6 +111,8 @@ export default function BorrowRequests() {
           const Icon = statusIcons[statusLabel] || Clock;
           const isOwner = request.ownerId?._id === (user?.id || user?._id);
           const isBorrower = request.borrowerId?._id === (user?.id || user?._id);
+          const borrower = request.borrowerId;
+          const lowTrust = borrower?.trustTier === 'LOW' || (borrower?.trustScore || 0) < 40;
           return (
             <GlassCard key={request._id || request.id} className="space-y-4">
               <div className="flex items-center justify-between">
@@ -122,6 +130,20 @@ export default function BorrowRequests() {
               <p className="text-sm text-slate-600">
                 Requested by {request.borrowerId?.name || request.from}
               </p>
+              {borrower?.accountStatus === 'SUSPENDED' ? (
+                <div className="rounded-2xl bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700">
+                  Borrower account is suspended.
+                </div>
+              ) : null}
+              {isOwner && lowTrust ? (
+                <motion.div
+                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2.4, repeat: Infinity }}
+                  className="flex items-center gap-2 rounded-2xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700"
+                >
+                  <AlertTriangle className="h-4 w-4" /> Low trust borrower · consider shorter duration
+                </motion.div>
+              ) : null}
               {request.message ? (
                 <p className="text-xs text-slate-500">“{request.message}”</p>
               ) : null}
@@ -165,7 +187,7 @@ export default function BorrowRequests() {
               {request.status === 'RETURNED' && (isOwner || isBorrower) ? (
                 <div className="rounded-2xl bg-white/70 p-4 text-xs text-slate-600">
                   <p className="font-semibold text-slate-900">Leave a rating</p>
-                  <div className="mt-2 grid gap-2 md:grid-cols-[120px_1fr_auto]">
+                  <div className="mt-2 grid gap-2 md:grid-cols-[120px_120px_1fr_auto]">
                     <input
                       type="number"
                       min="1"
@@ -174,6 +196,17 @@ export default function BorrowRequests() {
                       value={ratingInputs[request._id]?.score || ''}
                       onChange={(event) =>
                         handleRatingChange(request._id, 'score', event.target.value)
+                      }
+                      className="rounded-full bg-white px-3 py-2 text-xs outline-none"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      placeholder="Care"
+                      value={ratingInputs[request._id]?.careScore || ''}
+                      onChange={(event) =>
+                        handleRatingChange(request._id, 'careScore', event.target.value)
                       }
                       className="rounded-full bg-white px-3 py-2 text-xs outline-none"
                     />

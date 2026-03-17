@@ -13,6 +13,7 @@ import ItemDetail from './pages/ItemDetail';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import CommunityAdmin from './pages/CommunityAdmin';
+import AdminDashboard from './pages/AdminDashboard';
 
 function PageWrapper({ children }) {
   return (
@@ -98,6 +99,16 @@ function AnimatedRoutes() {
             <ProtectedRoute>
               <PageWrapper>
                 <CommunityAdmin />
+              </PageWrapper>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <PageWrapper>
+                <AdminDashboard />
               </PageWrapper>
             </ProtectedRoute>
           }

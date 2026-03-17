@@ -2,6 +2,9 @@ import { ArrowUpRight, Package, ShieldCheck, Star, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import GlassCard from '../components/GlassCard';
 import TrustMeter from '../components/TrustMeter';
+import TrustHistoryChart from '../components/TrustHistoryChart';
+import TrustTransparencyModal from '../components/TrustTransparencyModal';
+import TrustTimeline from '../components/TrustTimeline';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,10 +13,17 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     trustScore: user?.trustScore ?? 0,
     creditPoints: user?.creditPoints ?? 0,
+    trustTier: user?.trustTier ?? 'LOW',
+    trustBreakdown: null,
+    borrowLimits: null,
+    trustOverride: null,
     itemsLent: 0,
     itemsBorrowed: 0,
     pendingRequests: 0,
   });
+  const [history, setHistory] = useState([]);
+  const [timeline, setTimeline] = useState([]);
+  const [showTransparency, setShowTransparency] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -21,14 +31,37 @@ export default function Dashboard() {
         const data = await api.get('/dashboard', token);
         setStats(data);
         if (user) {
-          setUser({ ...user, trustScore: data.trustScore, creditPoints: data.creditPoints });
+          setUser({
+            ...user,
+            trustScore: data.trustScore,
+            creditPoints: data.creditPoints,
+            trustTier: data.trustTier,
+          });
         }
       } catch (error) {
         // fallback to local state
       }
     };
+    const fetchHistory = async () => {
+      try {
+        const data = await api.get('/trust/history?limit=12', token);
+        setHistory(data.history || []);
+      } catch (error) {
+        setHistory([]);
+      }
+    };
+    const fetchTimeline = async () => {
+      try {
+        const data = await api.get('/trust/timeline?limit=20', token);
+        setTimeline(data.timeline || []);
+      } catch (error) {
+        setTimeline([]);
+      }
+    };
     if (token) {
       fetchStats();
+      fetchHistory();
+      fetchTimeline();
     }
   }, [token]);
 
@@ -54,7 +87,18 @@ export default function Dashboard() {
       </div>
 
       <GlassCard className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <TrustMeter value={stats.trustScore} />
+        <div className="space-y-4">
+          <TrustMeter value={stats.trustScore} />
+          <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            Tier: {stats.trustTier?.replace('_', ' ') || 'LOW'}
+          </span>
+          <button
+            onClick={() => setShowTransparency(true)}
+            className="text-xs font-semibold text-primary"
+          >
+            Why this score?
+          </button>
+        </div>
         <div className="grid flex-1 gap-4 sm:grid-cols-2">
           {metrics.map((metric) => {
             const Icon = metric.icon;
@@ -74,47 +118,78 @@ export default function Dashboard() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <GlassCard className="space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900">Active Borrow Requests</h3>
-          <div className="space-y-3 text-sm text-slate-600">
-            <div className="flex items-center justify-between rounded-2xl bg-white/70 p-4">
-              <div>
-                <p className="font-semibold text-slate-900">Smart Projector</p>
-                <p>From Meera K.</p>
-              </div>
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                Pending
-              </span>
+          <h3 className="text-lg font-semibold text-slate-900">Trust Breakdown</h3>
+          {stats.trustBreakdown ? (
+            <div className="space-y-3 text-sm text-slate-600">
+              {[
+                { label: 'Return punctuality', value: stats.trustBreakdown.punctuality },
+                { label: 'Average rating', value: stats.trustBreakdown.rating },
+                { label: 'Item care', value: stats.trustBreakdown.care },
+                { label: 'Community contribution', value: stats.trustBreakdown.contribution },
+              ].map((metric) => (
+                <div key={metric.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                    <span>{metric.label}</span>
+                    <span>{Math.round(metric.value * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-200">
+                    <div
+                      className="h-2 rounded-full bg-primary"
+                      style={{ width: `${Math.round(metric.value * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-between rounded-2xl bg-white/70 p-4">
-              <div>
-                <p className="font-semibold text-slate-900">Electric Grill</p>
-                <p>From Rahul G.</p>
-              </div>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Active
-              </span>
-            </div>
-          </div>
+          ) : (
+            <p className="text-sm text-slate-600">Collecting trust signals...</p>
+          )}
         </GlassCard>
 
         <GlassCard className="space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900">Trust Score Growth</h3>
-          <div className="rounded-2xl bg-white/70 p-4">
-            <p className="text-sm text-slate-600">
-              Your trust score increased by 6 points this month thanks to on-time returns and
-              positive ratings.
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                +6 trust
-              </span>
-              <span className="rounded-full bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary">
-                +20 points
-              </span>
+          <h3 className="text-lg font-semibold text-slate-900">Borrow Limits</h3>
+          {stats.borrowLimits ? (
+            <div className="space-y-3 text-sm text-slate-600">
+              <div className="flex items-center justify-between rounded-2xl bg-white/70 p-4">
+                <span>Max active borrows</span>
+                <span className="font-semibold text-slate-900">{stats.borrowLimits.maxActive}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl bg-white/70 p-4">
+                <span>Max item value</span>
+                <span className="font-semibold text-slate-900">
+                  {stats.borrowLimits.maxValueTier}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl bg-white/70 p-4">
+                <span>Max duration</span>
+                <span className="font-semibold text-slate-900">
+                  {stats.borrowLimits.maxDurationDays} days
+                </span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-slate-600">Borrow limits will update after first return.</p>
+          )}
+        </GlassCard>
+
+        <GlassCard className="space-y-4">
+          <h3 className="text-lg font-semibold text-slate-900">Trust History</h3>
+          <TrustHistoryChart history={history} />
+        </GlassCard>
+
+        <GlassCard className="space-y-4">
+          <h3 className="text-lg font-semibold text-slate-900">Trust Timeline</h3>
+          <TrustTimeline timeline={timeline} />
         </GlassCard>
       </div>
+
+      <TrustTransparencyModal
+        open={showTransparency}
+        onClose={() => setShowTransparency(false)}
+        breakdown={stats.trustBreakdown}
+        tier={stats.trustTier?.replace('_', ' ') || 'LOW'}
+        override={stats.trustOverride}
+      />
     </section>
   );
 }

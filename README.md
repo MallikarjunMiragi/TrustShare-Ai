@@ -55,6 +55,14 @@ Backend (`trustshare-ai/server/.env`)
 - `PATCH /api/items/:id` (owner updates item details/image)
 - `PATCH /api/items/:id/availability`
 - `POST /api/uploads/image`
+- `GET /api/trust/profile`
+- `GET /api/trust/history`
+- `GET /api/trust/timeline`
+- `GET /api/admin/overview` (community admin only)
+- `PATCH /api/admin/users/:id/status`
+- `PATCH /api/admin/users/:id/limits`
+- `PATCH /api/admin/users/:id/reset-trust`
+- `PATCH /api/admin/users/:id/clear-trust-override`
 - `POST /api/borrows`
 - `GET /api/borrows`
 - `PATCH /api/borrows/:id/approve`

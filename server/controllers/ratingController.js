@@ -4,12 +4,15 @@ const asyncHandler = require('../utils/asyncHandler');
 const { recomputeTrustScore } = require('../utils/trust');
 
 exports.createRating = asyncHandler(async (req, res) => {
-  const { borrowRequestId, score, comment } = req.body;
+  const { borrowRequestId, score, careScore, comment } = req.body;
   if (!borrowRequestId || !score) {
     return res.status(400).json({ message: 'Borrow request and score required' });
   }
   if (score < 1 || score > 5) {
     return res.status(400).json({ message: 'Score must be between 1 and 5' });
+  }
+  if (careScore && (careScore < 1 || careScore > 5)) {
+    return res.status(400).json({ message: 'Care score must be between 1 and 5' });
   }
 
   const request = await BorrowRequest.findById(borrowRequestId);
@@ -45,6 +48,7 @@ exports.createRating = asyncHandler(async (req, res) => {
     toUserId,
     borrowRequestId,
     score,
+    careScore,
     comment,
   });
 

@@ -25,12 +25,14 @@ export default function ItemDetail() {
           ...data,
           owner: data.ownerId?.name || data.owner,
           trustScore: data.ownerId?.trustScore ?? data.trustScore ?? 0,
+          trustTier: data.ownerId?.trustTier ?? data.trustTier,
         });
       } catch (err) {
         setStatus((prev) => ({ ...prev, error: err.message }));
       }
     };
-    if (token) {
+    const isValidObjectId = /^[a-f\\d]{24}$/i.test(id || '');
+    if (token && isValidObjectId) {
       fetchItem();
     }
   }, [id, token]);
@@ -44,6 +46,14 @@ export default function ItemDetail() {
     event.preventDefault();
     setStatus({ loading: true, error: '', success: '' });
     try {
+      if (!item._id) {
+        setStatus({
+          loading: false,
+          error: 'This is a demo item. Please select a real item from the marketplace.',
+          success: '',
+        });
+        return;
+      }
       await api.post(
         '/borrows',
         { itemId: item._id || id, durationDays: Number(form.durationDays), message: form.message },
@@ -86,7 +96,10 @@ export default function ItemDetail() {
     <section className="space-y-8">
       <div>
         <h2 className="text-3xl font-semibold text-slate-900">{item.title}</h2>
-        <p className="text-sm text-slate-600">{item.category} · Shared by {item.owner}</p>
+        <p className="text-sm text-slate-600">
+          {item.category} · Shared by {item.owner}{' '}
+          {item.valueTier ? `· ${item.valueTier} value` : ''}
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
@@ -171,7 +184,9 @@ export default function ItemDetail() {
       <GlassCard className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Owner profile</h3>
-          <p className="text-sm text-slate-600">{item.owner} · Trusted Neighbor</p>
+          <p className="text-sm text-slate-600">
+            {item.owner} · {item.trustTier ? item.trustTier.replace('_', ' ') : 'Trusted Neighbor'}
+          </p>
         </div>
         <TrustMeter value={item.trustScore} />
       </GlassCard>

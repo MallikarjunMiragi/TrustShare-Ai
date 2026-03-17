@@ -74,7 +74,7 @@ export default function Landing() {
                 “Borrowed 14 times this month with a 100% on-time return rate.”
               </p>
             </div>
-            <Link to="/items/1" className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <Link to="/items" className="flex items-center gap-2 text-sm font-semibold text-primary">
               View item <ArrowRight className="h-4 w-4" />
             </Link>
           </GlassCard>
