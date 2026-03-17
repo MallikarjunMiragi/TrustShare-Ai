@@ -42,6 +42,32 @@ Backend (`trustshare-ai/server/.env`)
 - `JWT_SECRET` secret key for JWT
 - `JWT_EXPIRES_IN` token lifetime (default 7d)
 
+## Deploy (Render + Vercel)
+### Backend on Render
+1. Push this repo to GitHub.
+2. Create a **Render Web Service** and select the repo.
+3. Set **Root Directory** to `trustshare-ai/server`.
+4. Build Command: `npm install`
+5. Start Command: `npm start`
+6. Add env vars in Render:
+   - `MONGO_URI`
+   - `JWT_SECRET`
+   - `JWT_EXPIRES_IN`
+   - `CLIENT_URL` = your Vercel app URL (e.g. `https://your-app.vercel.app`)
+   - `NODE_ENV=production`
+   - Optional: Cloudinary + Email credentials
+
+### Frontend on Vercel
+1. Import the repo in Vercel.
+2. Set **Root Directory** to `trustshare-ai/client`.
+3. Build Command: `npm run build`
+4. Output Directory: `dist`
+5. Add env var:
+   - `VITE_API_URL=https://<your-render-app>.onrender.com/api`
+
+### SPA Routing
+Vercel uses `trustshare-ai/client/vercel.json` to handle client‑side routing.
+
 ## API Overview
 - `POST /api/auth/register` (inviteCode required unless creating a community)
 - `POST /api/auth/login`
