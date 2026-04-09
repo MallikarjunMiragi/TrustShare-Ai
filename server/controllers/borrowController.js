@@ -160,6 +160,7 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
   }
 
   request.status = 'REJECTED';
+  request.rejectedAt = new Date();
   await request.save();
 
   res.json({ request });

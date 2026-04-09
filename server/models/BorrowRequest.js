@@ -13,6 +13,7 @@ const borrowRequestSchema = new mongoose.Schema({
   },
   requestedAt: { type: Date, default: Date.now },
   approvedAt: { type: Date },
+  rejectedAt: { type: Date },
   returnedAt: { type: Date },
   dueAt: { type: Date },
 });

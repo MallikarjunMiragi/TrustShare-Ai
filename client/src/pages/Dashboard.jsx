@@ -1,5 +1,16 @@
-import { ArrowUpRight, Package, ShieldCheck, Star, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Gauge,
+  Package,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
 import TrustMeter from '../components/TrustMeter';
 import TrustHistoryChart from '../components/TrustHistoryChart';
@@ -7,6 +18,26 @@ import TrustTransparencyModal from '../components/TrustTransparencyModal';
 import TrustTimeline from '../components/TrustTimeline';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+
+const signalConfig = [
+  { key: 'punctuality', label: 'Return punctuality' },
+  { key: 'completion', label: 'Completion rate' },
+  { key: 'rating', label: 'Reputation quality' },
+  { key: 'care', label: 'Item care' },
+  { key: 'contribution', label: 'Community contribution' },
+  { key: 'diversity', label: 'Member diversity' },
+  { key: 'verification', label: 'Profile verification' },
+  { key: 'responsiveness', label: 'Owner responsiveness' },
+  { key: 'valueHandling', label: 'Value-tier readiness' },
+];
+
+const flagTone = {
+  high: 'bg-rose-100 text-rose-700',
+  medium: 'bg-amber-100 text-amber-700',
+  low: 'bg-sky-100 text-sky-700',
+};
+
+const formatPct = (value) => `${Math.round((value || 0) * 100)}%`;
 
 export default function Dashboard() {
   const { token, user, setUser } = useAuth();
@@ -42,6 +73,7 @@ export default function Dashboard() {
         // fallback to local state
       }
     };
+
     const fetchHistory = async () => {
       try {
         const data = await api.get('/trust/history?limit=12', token);
@@ -50,6 +82,7 @@ export default function Dashboard() {
         setHistory([]);
       }
     };
+
     const fetchTimeline = async () => {
       try {
         const data = await api.get('/trust/timeline?limit=20', token);
@@ -58,6 +91,7 @@ export default function Dashboard() {
         setTimeline([]);
       }
     };
+
     if (token) {
       fetchStats();
       fetchHistory();
@@ -72,6 +106,37 @@ export default function Dashboard() {
     { label: 'Pending Requests', value: stats.pendingRequests, icon: ShieldCheck },
   ];
 
+  const breakdown = stats.trustBreakdown;
+  const signalEntries = signalConfig
+    .map((entry) => ({
+      ...entry,
+      value: breakdown?.signals?.[entry.key] ?? breakdown?.[entry.key],
+      weight: breakdown?.signalWeights?.[entry.key] ?? 0,
+    }))
+    .filter((entry) => typeof entry.value === 'number');
+  const flags = breakdown?.flags || [];
+  const strengths = breakdown?.strengths || [];
+
+  const guardrailCards = breakdown
+    ? [
+        {
+          label: 'Confidence',
+          value: formatPct(breakdown.confidence?.overall),
+          hint: `Blend ${formatPct(breakdown.confidence?.blend)}`,
+        },
+        {
+          label: 'History cap',
+          value: formatPct(breakdown.confidence?.historyCap),
+          hint: breakdown.antiGaming?.historyCapApplied ? 'Cap active' : 'Cap lifted',
+        },
+        {
+          label: 'Anti-gaming penalty',
+          value: formatPct(breakdown.penalties?.total),
+          hint: `${flags.length} active flags`,
+        },
+      ]
+    : [];
+
   return (
     <section className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -81,7 +146,10 @@ export default function Dashboard() {
           </p>
           <h2 className="text-3xl font-semibold text-slate-900">Your Trust Dashboard</h2>
         </div>
-        <button className="flex items-center gap-2 rounded-full bg-white/70 px-5 py-2 text-sm font-semibold text-slate-700">
+        <button
+          onClick={() => setShowTransparency(true)}
+          className="flex items-center gap-2 rounded-full bg-white/70 px-5 py-2 text-sm font-semibold text-slate-700"
+        >
           View insights <ArrowUpRight className="h-4 w-4" />
         </button>
       </div>
@@ -116,29 +184,50 @@ export default function Dashboard() {
         </div>
       </GlassCard>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
         <GlassCard className="space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900">Trust Breakdown</h3>
-          {stats.trustBreakdown ? (
-            <div className="space-y-3 text-sm text-slate-600">
-              {[
-                { label: 'Return punctuality', value: stats.trustBreakdown.punctuality },
-                { label: 'Average rating', value: stats.trustBreakdown.rating },
-                { label: 'Item care', value: stats.trustBreakdown.care },
-                { label: 'Community contribution', value: stats.trustBreakdown.contribution },
-              ].map((metric) => (
-                <div key={metric.label} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                    <span>{metric.label}</span>
-                    <span>{Math.round(metric.value * 100)}%</span>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Multi-Parameter Trust Signals</h3>
+              <p className="text-sm text-slate-600">
+                Score quality, reliability, diversity, and confidence all work together.
+              </p>
+            </div>
+            <div className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600">
+              {breakdown?.formulaVersion || 'Collecting signals'}
+            </div>
+          </div>
+
+          {signalEntries.length ? (
+            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {signalEntries.map((signal, index) => (
+                <motion.div
+                  key={signal.key}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: index * 0.05 }}
+                  className="rounded-2xl bg-white/70 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500">{signal.label}</p>
+                      <p className="mt-1 text-2xl font-semibold text-slate-900">
+                        {formatPct(signal.value)}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                      Weight {Math.round(signal.weight * 100)}%
+                    </span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-slate-200">
-                    <div
-                      className="h-2 rounded-full bg-primary"
-                      style={{ width: `${Math.round(metric.value * 100)}%` }}
+                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.round(signal.value * 100)}%` }}
+                      transition={{ duration: 0.7, delay: index * 0.05 }}
+                      className="h-full rounded-full bg-gradient-to-r from-primary via-sky-400 to-emerald-400"
                     />
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           ) : (
@@ -146,6 +235,93 @@ export default function Dashboard() {
           )}
         </GlassCard>
 
+        <GlassCard className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold text-slate-900">Anti-Gaming Guardrails</h3>
+          </div>
+          {guardrailCards.length ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                {guardrailCards.map((card) => (
+                  <div key={card.label} className="rounded-2xl bg-white/70 p-4">
+                    <p className="text-xs font-semibold text-slate-500">{card.label}</p>
+                    <p className="mt-1 text-2xl font-semibold text-slate-900">{card.value}</p>
+                    <p className="text-xs text-slate-500">{card.hint}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl bg-white/70 p-4">
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold text-slate-900">How manipulation is reduced</p>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  Trust is blended with confidence, capped for low-history accounts, and penalized
+                  when activity or ratings are too concentrated.
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                <div className="rounded-2xl bg-white/70 p-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-500" />
+                    <p className="text-sm font-semibold text-slate-900">Strengths</p>
+                  </div>
+                  {strengths.length ? (
+                    <div className="mt-3 space-y-2">
+                      {strengths.map((item) => (
+                        <div
+                          key={item}
+                          className="rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
+                        >
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-600">
+                      Positive patterns will appear here as more borrowing history builds up.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-2xl bg-white/70 p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <p className="text-sm font-semibold text-slate-900">Flags</p>
+                  </div>
+                  {flags.length ? (
+                    <div className="mt-3 space-y-2">
+                      {flags.map((flag, index) => (
+                        <motion.div
+                          key={`${flag.code}-${index}`}
+                          animate={{ opacity: [0.85, 1, 0.85] }}
+                          transition={{ duration: 3, repeat: Infinity, delay: index * 0.3 }}
+                          className={`rounded-2xl px-3 py-2 text-xs font-semibold ${
+                            flagTone[flag.severity] || flagTone.medium
+                          }`}
+                        >
+                          {flag.label}
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-600">
+                      No manipulation risk flags are active right now.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-600">Guardrails will appear after trust is computed.</p>
+          )}
+        </GlassCard>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
         <GlassCard className="space-y-4">
           <h3 className="text-lg font-semibold text-slate-900">Borrow Limits</h3>
           {stats.borrowLimits ? (
@@ -176,12 +352,12 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-slate-900">Trust History</h3>
           <TrustHistoryChart history={history} />
         </GlassCard>
-
-        <GlassCard className="space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900">Trust Timeline</h3>
-          <TrustTimeline timeline={timeline} />
-        </GlassCard>
       </div>
+
+      <GlassCard className="space-y-4">
+        <h3 className="text-lg font-semibold text-slate-900">Trust Timeline</h3>
+        <TrustTimeline timeline={timeline} />
+      </GlassCard>
 
       <TrustTransparencyModal
         open={showTransparency}
@@ -189,6 +365,7 @@ export default function Dashboard() {
         breakdown={stats.trustBreakdown}
         tier={stats.trustTier?.replace('_', ' ') || 'LOW'}
         override={stats.trustOverride}
+        score={stats.trustScore}
       />
     </section>
   );
