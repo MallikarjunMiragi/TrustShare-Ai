@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
 import AnimatedButton from '../components/AnimatedButton';
+import AdminMemberProfileModal from '../components/AdminMemberProfileModal';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,18 +12,20 @@ export default function CommunityAdmin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionStatus, setActionStatus] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+
+  const fetchCommunity = async () => {
+    try {
+      const data = await api.get('/communities/me', token);
+      setCommunity(data.community);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCommunity = async () => {
-      try {
-        const data = await api.get('/communities/me', token);
-        setCommunity(data.community);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     if (token) {
       fetchCommunity();
     }
@@ -122,14 +125,30 @@ export default function CommunityAdmin() {
                   <p className="font-semibold text-slate-900">{member.name}</p>
                   <p className="text-xs text-slate-500">{member.email}</p>
                 </div>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                  Trust {member.trustScore ?? 0}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    Trust {member.trustScore ?? 0}
+                  </span>
+                  <button
+                    onClick={() => setSelectedMemberId(member._id)}
+                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700"
+                  >
+                    View/Edit
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </GlassCard>
       </div>
+
+      <AdminMemberProfileModal
+        open={Boolean(selectedMemberId)}
+        memberId={selectedMemberId}
+        token={token}
+        onClose={() => setSelectedMemberId(null)}
+        onUpdated={fetchCommunity}
+      />
     </section>
   );
 }

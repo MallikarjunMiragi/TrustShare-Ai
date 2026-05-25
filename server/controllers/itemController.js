@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
+const BorrowRequest = require('../models/BorrowRequest');
 const asyncHandler = require('../utils/asyncHandler');
 const { recomputeTrustScore } = require('../utils/trust');
 
@@ -31,7 +32,7 @@ exports.createItem = asyncHandler(async (req, res) => {
 });
 
 exports.getItems = asyncHandler(async (req, res) => {
-  const { q, category, available } = req.query;
+  const { q, category, available, owner } = req.query;
   if (!req.user.communityId) {
     return res.status(400).json({ message: 'User must belong to a community' });
   }
@@ -46,8 +47,15 @@ exports.getItems = asyncHandler(async (req, res) => {
   if (available !== undefined) {
     filter.available = available === 'true';
   }
+  if (owner === 'me') {
+    filter.ownerId = req.user._id;
+  } else if (owner && mongoose.Types.ObjectId.isValid(owner)) {
+    filter.ownerId = owner;
+  }
 
-  const items = await Item.find(filter).populate('ownerId', 'name trustScore trustTier');
+  const items = await Item.find(filter)
+    .populate('ownerId', 'name trustScore trustTier')
+    .sort({ createdAt: -1 });
   res.json({ items });
 });
 
@@ -64,6 +72,9 @@ exports.getItemById = asyncHandler(async (req, res) => {
 });
 
 exports.updateAvailability = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid item id' });
+  }
   const { available } = req.body;
   const item = await Item.findById(req.params.id);
   if (!item || item.ownerId.toString() !== req.user._id.toString()) {
@@ -80,6 +91,9 @@ exports.updateAvailability = asyncHandler(async (req, res) => {
 });
 
 exports.updateItem = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid item id' });
+  }
   const item = await Item.findById(req.params.id);
   if (!item || item.ownerId.toString() !== req.user._id.toString()) {
     return res.status(404).json({ message: 'Item not found' });
@@ -105,4 +119,31 @@ exports.updateItem = asyncHandler(async (req, res) => {
   await recomputeTrustScore(req.user._id);
 
   res.json({ item });
+});
+
+exports.deleteItem = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid item id' });
+  }
+
+  const item = await Item.findById(req.params.id);
+  if (!item || item.ownerId.toString() !== req.user._id.toString()) {
+    return res.status(404).json({ message: 'Item not found' });
+  }
+
+  const activeLinkedRequests = await BorrowRequest.countDocuments({
+    itemId: item._id,
+    status: { $in: ['PENDING', 'ACTIVE'] },
+  });
+
+  if (activeLinkedRequests > 0) {
+    return res.status(400).json({
+      message: 'This item has pending or active borrow requests. Resolve them before removing it.',
+    });
+  }
+
+  await Item.deleteOne({ _id: item._id });
+  await recomputeTrustScore(req.user._id);
+
+  res.json({ message: 'Item removed successfully' });
 });

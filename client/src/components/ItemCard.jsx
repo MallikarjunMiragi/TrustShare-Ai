@@ -4,7 +4,12 @@ import { Link } from 'react-router-dom';
 import GlassCard from './GlassCard';
 import AnimatedButton from './AnimatedButton';
 
-export default function ItemCard({ item }) {
+export default function ItemCard({ item, currentUserId, onBorrow }) {
+  const ownerId = item.ownerId?._id || item.ownerId;
+  const isOwner = ownerId && currentUserId && ownerId.toString() === currentUserId.toString();
+  const canBorrow = Boolean(item.available && !isOwner && item._id && onBorrow);
+  const borrowLabel = !item.available ? 'Borrowed' : isOwner ? 'Your item' : 'Borrow';
+
   return (
     <GlassCard className="space-y-4">
       <div className="rounded-2xl bg-white/50 p-4">
@@ -48,9 +53,16 @@ export default function ItemCard({ item }) {
           className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700"
         >
           <BadgeCheck className="h-4 w-4 text-secondary" />
-          {item.badge}
+          {item.badge || 'Community item'}
         </motion.div>
-        <AnimatedButton className="px-4 py-2 text-xs">Borrow</AnimatedButton>
+        <AnimatedButton
+          type="button"
+          disabled={!canBorrow}
+          onClick={() => canBorrow && onBorrow(item)}
+          className="px-4 py-2 text-xs"
+        >
+          {borrowLabel}
+        </AnimatedButton>
       </div>
     </GlassCard>
   );

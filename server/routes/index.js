@@ -8,6 +8,7 @@ const dashboardRoutes = require('./dashboardRoutes');
 const uploadRoutes = require('./uploadRoutes');
 const trustRoutes = require('./trustRoutes');
 const adminRoutes = require('./adminRoutes');
+const aiRoutes = require('./aiRoutes');
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/trust', trustRoutes);
 router.use('/admin', adminRoutes);
+router.use('/ai', aiRoutes);
 
 module.exports = router;

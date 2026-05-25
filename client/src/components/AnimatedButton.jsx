@@ -8,7 +8,7 @@ export default function AnimatedButton({ className, children, ...props }) {
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 300, damping: 18 }}
       className={cn(
-        'rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-glow transition-shadow hover:shadow-xl',
+        'rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-glow transition-shadow hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60',
         className
       )}
       {...props}

@@ -2,6 +2,7 @@ import { AlertTriangle, ShieldCheck, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
+import AdminMemberProfileModal from '../components/AdminMemberProfileModal';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,6 +16,7 @@ export default function AdminDashboard() {
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState('');
   const [expandedMemberId, setExpandedMemberId] = useState(null);
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [limitDrafts, setLimitDrafts] = useState({});
   const [actionMessage, setActionMessage] = useState('');
 
@@ -179,6 +181,12 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <button
+                  onClick={() => setSelectedMemberId(member._id)}
+                  className="rounded-full bg-white px-3 py-1 font-semibold text-slate-600"
+                >
+                  View/Edit Profile
+                </button>
                 {member.accountStatus === 'SUSPENDED' ? (
                   <button onClick={() => updateStatus(member._id, 'ACTIVE')} className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">
                     Reinstate
@@ -242,6 +250,14 @@ export default function AdminDashboard() {
           ))}
         </div>
       </GlassCard>
+
+      <AdminMemberProfileModal
+        open={Boolean(selectedMemberId)}
+        memberId={selectedMemberId}
+        token={token}
+        onClose={() => setSelectedMemberId(null)}
+        onUpdated={fetchOverview}
+      />
     </section>
   );
 }

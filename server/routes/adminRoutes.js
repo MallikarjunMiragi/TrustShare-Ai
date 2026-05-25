@@ -1,6 +1,8 @@
 const express = require('express');
 const {
   getAdminOverview,
+  getMemberProfile,
+  updateMemberProfile,
   updateMemberStatus,
   setBorrowLimits,
   resetTrust,
@@ -12,6 +14,8 @@ const { requireCommunityAdmin } = require('../middleware/admin');
 const router = express.Router();
 
 router.get('/overview', auth, requireCommunityAdmin, getAdminOverview);
+router.get('/users/:id', auth, requireCommunityAdmin, getMemberProfile);
+router.patch('/users/:id/profile', auth, requireCommunityAdmin, updateMemberProfile);
 router.patch('/users/:id/status', auth, requireCommunityAdmin, updateMemberStatus);
 router.patch('/users/:id/limits', auth, requireCommunityAdmin, setBorrowLimits);
 router.patch('/users/:id/reset-trust', auth, requireCommunityAdmin, resetTrust);

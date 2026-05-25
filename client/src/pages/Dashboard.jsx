@@ -54,6 +54,7 @@ export default function Dashboard() {
   });
   const [history, setHistory] = useState([]);
   const [timeline, setTimeline] = useState([]);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
   const [showTransparency, setShowTransparency] = useState(false);
 
   useEffect(() => {
@@ -92,10 +93,20 @@ export default function Dashboard() {
       }
     };
 
+    const fetchAIAnalysis = async () => {
+      try {
+        const data = await api.get('/ai/trust-analysis', token);
+        setAiAnalysis(data.analysis || null);
+      } catch (error) {
+        setAiAnalysis(null);
+      }
+    };
+
     if (token) {
       fetchStats();
       fetchHistory();
       fetchTimeline();
+      fetchAIAnalysis();
     }
   }, [token]);
 
@@ -183,6 +194,81 @@ export default function Dashboard() {
           })}
         </div>
       </GlassCard>
+
+      {aiAnalysis ? (
+        <GlassCard className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold text-slate-900">AI Trust Analyst</h3>
+              </div>
+              <p className="mt-1 text-sm text-slate-600">{aiAnalysis.summary}</p>
+            </div>
+            <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600">
+              {aiAnalysis.source} · {aiAnalysis.engineVersion}
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-white/70 p-4">
+              <p className="text-xs font-semibold text-slate-500">AI reliability score</p>
+              <p className="mt-1 text-3xl font-semibold text-slate-900">{aiAnalysis.modelScore}</p>
+              <p className="text-xs text-slate-500">Confidence {aiAnalysis.confidence}%</p>
+            </div>
+            <div className="rounded-2xl bg-white/70 p-4">
+              <p className="text-xs font-semibold text-slate-500">Risk level</p>
+              <p className="mt-1 text-3xl font-semibold text-slate-900">{aiAnalysis.riskLevel}</p>
+              <p className="text-xs text-slate-500">Real-time behavioural analysis</p>
+            </div>
+            <div className="rounded-2xl bg-white/70 p-4">
+              <p className="text-xs font-semibold text-slate-500">Lending advice</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{aiAnalysis.lendingAdvice}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[1fr_1fr_0.95fr]">
+            <div className="rounded-2xl bg-white/70 p-4">
+              <p className="text-sm font-semibold text-slate-900">Top positive drivers</p>
+              <div className="mt-3 space-y-2">
+                {(aiAnalysis.positiveDrivers || []).map((driver) => (
+                  <div key={driver.label} className="rounded-2xl bg-emerald-50 px-3 py-2">
+                    <p className="text-xs font-semibold text-emerald-700">{driver.label}</p>
+                    <p className="text-xs text-slate-600">{driver.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-white/70 p-4">
+              <p className="text-sm font-semibold text-slate-900">Top risk drivers</p>
+              <div className="mt-3 space-y-2">
+                {(aiAnalysis.riskDrivers || []).length ? (
+                  aiAnalysis.riskDrivers.map((driver) => (
+                    <div key={driver.label} className="rounded-2xl bg-amber-50 px-3 py-2">
+                      <p className="text-xs font-semibold text-amber-700">{driver.label}</p>
+                      <p className="text-xs text-slate-600">{driver.detail}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-600">No major AI risk drivers detected right now.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-white/70 p-4">
+              <p className="text-sm font-semibold text-slate-900">Next best actions</p>
+              <div className="mt-3 space-y-2">
+                {(aiAnalysis.recommendedActions || []).map((action) => (
+                  <div key={action} className="rounded-2xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
+                    {action}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
         <GlassCard className="space-y-4">

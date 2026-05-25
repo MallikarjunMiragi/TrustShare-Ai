@@ -1,6 +1,7 @@
 import { Award, MapPin, ShieldCheck, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import GlassCard from '../components/GlassCard';
+import MyUploadedItemsSection from '../components/MyUploadedItemsSection';
 import TrustMeter from '../components/TrustMeter';
 import { badges } from '../data/mock';
 import { api } from '../lib/api';
@@ -123,6 +124,8 @@ export default function Profile() {
           </div>
         </GlassCard>
       </div>
+
+      <MyUploadedItemsSection token={token} />
     </section>
   );
 }

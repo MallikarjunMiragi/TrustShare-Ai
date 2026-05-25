@@ -2,15 +2,13 @@ services:
   - type: web
     name: trustshare-ai-server
     env: node
-    rootDir: trustshare-ai/server
+    rootDir: server
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5002
       - key: CLIENT_URL
         value: https://your-vercel-app.vercel.app
       - key: MONGO_URI
@@ -19,6 +17,8 @@ services:
         sync: false
       - key: JWT_EXPIRES_IN
         value: 7d
+      - key: AI_ENGINE_URL
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

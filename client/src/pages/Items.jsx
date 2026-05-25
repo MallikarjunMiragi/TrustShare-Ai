@@ -1,19 +1,26 @@
-import { Search } from 'lucide-react';
+import { Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import GlassCard from '../components/GlassCard';
 import ItemCard from '../components/ItemCard';
+import BorrowRequestModal from '../components/BorrowRequestModal';
 import { categories, featuredItems } from '../data/mock';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 
 export default function Items() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [items, setItems] = useState(featuredItems);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedBorrowItem, setSelectedBorrowItem] = useState(null);
+  const [aiRecommendations, setAiRecommendations] = useState({
+    source: '',
+    summary: '',
+    recommendations: [],
+  });
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -41,8 +48,22 @@ export default function Items() {
   };
 
   useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        const data = await api.get('/ai/recommendations?limit=3', token);
+        setAiRecommendations({
+          source: data.source || '',
+          summary: data.summary || '',
+          recommendations: data.recommendations || [],
+        });
+      } catch (err) {
+        setAiRecommendations({ source: '', summary: '', recommendations: [] });
+      }
+    };
+
     if (token) {
       fetchItems();
+      fetchRecommendations();
     }
   }, [token, query, category]);
 
@@ -78,16 +99,55 @@ export default function Items() {
     }
   };
 
+  const normalizeMarketplaceItem = (item) => ({
+    ...item,
+    owner: item.ownerId?.name || item.owner,
+    trustScore: item.ownerId?.trustScore ?? item.trustScore ?? 0,
+    trustTier: item.ownerId?.trustTier ?? item.trustTier,
+    available: item.available ?? true,
+  });
+
   const filteredItems = useMemo(() => {
     if (!items?.length) return [];
-    return items.map((item) => ({
-      ...item,
-      owner: item.ownerId?.name || item.owner,
-      trustScore: item.ownerId?.trustScore ?? item.trustScore ?? 0,
-      trustTier: item.ownerId?.trustTier ?? item.trustTier,
-      available: item.available ?? true,
-    }));
+    return items.map((item) => normalizeMarketplaceItem(item));
   }, [items]);
+
+  const recommendedItems = useMemo(() => {
+    return (aiRecommendations.recommendations || []).map((entry) => ({
+      ...entry,
+      item: normalizeMarketplaceItem(entry.item),
+    }));
+  }, [aiRecommendations]);
+
+  const recommendationMap = useMemo(
+    () =>
+      new Map(
+        recommendedItems
+          .filter((entry) => entry.item?._id)
+          .map((entry) => [entry.item._id.toString(), entry])
+      ),
+    [recommendedItems]
+  );
+
+  const selectedBorrowAdvice = selectedBorrowItem?._id
+    ? recommendationMap.get(selectedBorrowItem._id.toString())
+    : null;
+
+  const handleBorrowSubmit = async ({ durationDays, message }) => {
+    if (!selectedBorrowItem?._id) {
+      throw new Error('Please select a real marketplace item.');
+    }
+    await api.post(
+      '/borrows',
+      {
+        itemId: selectedBorrowItem._id,
+        durationDays,
+        message,
+      },
+      token
+    );
+    await fetchItems();
+  };
 
   return (
     <section className="space-y-8">
@@ -124,6 +184,84 @@ export default function Items() {
           </button>
         ))}
       </GlassCard>
+
+      {recommendedItems.length ? (
+        <GlassCard className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h3 className="text-lg font-semibold text-slate-900">AI Recommended For You</h3>
+              </div>
+              <p className="mt-1 text-sm text-slate-600">
+                {aiRecommendations.summary || 'Top community matches based on trust, history, and fit.'}
+              </p>
+            </div>
+            <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600">
+              {aiRecommendations.source || 'AI ready'}
+            </span>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            {recommendedItems.map((recommendation) => (
+              <div
+                key={`rec-${recommendation.itemId}`}
+                className="rounded-[1.75rem] bg-white/70 p-5 shadow-glass"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {recommendation.fitLabel}
+                    </p>
+                    <h4 className="mt-2 text-lg font-semibold text-slate-900">
+                      {recommendation.item.title}
+                    </h4>
+                    <p className="text-sm text-slate-600">
+                      {recommendation.item.category} · Owner trust {recommendation.item.trustScore}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-primary/10 px-3 py-2 text-right">
+                    <p className="text-[11px] font-semibold text-slate-500">AI fit</p>
+                    <p className="text-xl font-semibold text-primary">{recommendation.score}</p>
+                  </div>
+                </div>
+
+                {recommendation.reasons?.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {recommendation.reasons.map((reason) => (
+                      <span
+                        key={reason}
+                        className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold text-slate-700"
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {recommendation.caution ? (
+                  <p className="mt-4 rounded-2xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700">
+                    {recommendation.caution}
+                  </p>
+                ) : null}
+
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-xs text-slate-500">
+                    Suggested {recommendation.suggestedDurationDays} day request
+                  </p>
+                  <Button
+                    type="button"
+                    className="rounded-full"
+                    onClick={() => setSelectedBorrowItem(recommendation.item)}
+                  >
+                    Borrow smart
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
         <GlassCard className="space-y-4">
@@ -215,7 +353,12 @@ export default function Items() {
           {filteredItems.length ? (
             <div className="grid gap-6 md:grid-cols-2">
               {filteredItems.map((item) => (
-                <ItemCard key={item._id || item.id} item={item} />
+                <ItemCard
+                  key={item._id || item.id}
+                  item={item}
+                  currentUserId={user?.id || user?._id}
+                  onBorrow={setSelectedBorrowItem}
+                />
               ))}
             </div>
           ) : (
@@ -225,6 +368,14 @@ export default function Items() {
           )}
         </div>
       </div>
+
+      <BorrowRequestModal
+        item={selectedBorrowItem}
+        advisory={selectedBorrowAdvice}
+        open={Boolean(selectedBorrowItem)}
+        onClose={() => setSelectedBorrowItem(null)}
+        onSubmit={handleBorrowSubmit}
+      />
     </section>
   );
 }

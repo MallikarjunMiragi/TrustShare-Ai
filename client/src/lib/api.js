@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
 const buildHeaders = (token) => {
   const headers = { 'Content-Type': 'application/json' };
@@ -46,6 +46,13 @@ export const api = {
       method: 'PATCH',
       headers: buildHeaders(token),
       body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+  },
+  async delete(path, token) {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'DELETE',
+      headers: buildHeaders(token),
     });
     return handleResponse(res);
   },
