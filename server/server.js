@@ -4,6 +4,7 @@ dotenv.config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
@@ -27,8 +28,13 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 
+const mongoStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    db: mongoStates[mongoose.connection.readyState] || 'unknown',
+  });
 });
 
 app.use('/api', routes);
@@ -37,13 +43,17 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-connectDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to connect to MongoDB', err);
-    process.exit(1);
-  });
+const connectWithRetry = async () => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error(`Failed to connect to MongoDB: ${err.message}`);
+    console.error('Retrying MongoDB connection in 10 seconds...');
+    setTimeout(connectWithRetry, 10000);
+  }
+};
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  connectWithRetry();
+});
