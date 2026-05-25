@@ -1,4 +1,15 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+const getApiUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+  const normalizedUrl = configuredUrl.replace(/\/$/, '');
+
+  if (normalizedUrl.includes('<') || normalizedUrl.includes('>') || normalizedUrl.includes('your-render')) {
+    throw new Error('Backend API URL is not configured. Set VITE_API_URL to your real Render URL.');
+  }
+
+  return normalizedUrl;
+};
+
+const API_URL = getApiUrl();
 
 const buildHeaders = (token) => {
   const headers = { 'Content-Type': 'application/json' };
