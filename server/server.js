@@ -30,12 +30,22 @@ app.use(morgan('dev'));
 
 const mongoStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
 
-app.get('/health', (req, res) => {
+const healthHandler = (req, res) => {
   res.json({
     status: 'ok',
     db: mongoStates[mongoose.connection.readyState] || 'unknown',
   });
+};
+
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'TrustShareAI API',
+    health: '/health',
+  });
 });
+
+app.get(['/health', '/api/health'], healthHandler);
 
 app.use('/api', routes);
 
